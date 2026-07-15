@@ -22,7 +22,7 @@ HEPARA Discord is a Discord bot for HEPARA, a High Energy Physics research assis
 ## Installation
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/zjzhao1002/hepara-discord.git
 cd hepara-discord
 uv sync
 ```
