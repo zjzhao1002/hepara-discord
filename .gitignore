@@ -67,6 +67,7 @@ db.sqlite3-journal
 hepara/subagents/**/*_record.json
 pdf/
 chroma_db/
+.authors/
 
 # Flask stuff:
 instance/

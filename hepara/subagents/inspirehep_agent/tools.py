@@ -2,11 +2,12 @@ import os
 import httpx
 import json
 from typing import Literal
+from pathlib import Path
 
 DEFAULT_PAGE_SIZE = 150
 MAX_INSPIRE_PAGE_SIZE = 250
-AUTHOR = os.getenv("AUTHOR")
-RECORD_FILE = os.path.join(os.path.dirname(__file__), "citations_record.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+AUTHOR_PATH = PROJECT_ROOT / ".authors"
 LITERATURE_API_URL = "https://inspirehep.net/api/literature"
 CITATION_DIRECTIONS = {
     "citing": {
@@ -20,6 +21,15 @@ CITATION_DIRECTIONS = {
         "description": "papers that cite this paper",
     },
 }
+
+def _author_record_filename(author: str) -> str:
+    author_parts = author.split(".")
+    if len(author_parts) > 1 and author_parts[-1].isdigit():
+        author = ".".join(author_parts[:-1])
+    safe_author = "".join(char for char in author if char.isalnum())
+    if not safe_author:
+        safe_author = "author"
+    return f"{safe_author}_citations.json"
 
 async def _fetch_literature(params: dict) -> dict:
     async with httpx.AsyncClient(timeout=15.0) as client:
@@ -212,22 +222,35 @@ async def track_citations_updates() -> dict:
     Returns:
         dict: A dictionary containing new publications and citation increases.
     """
+    AUTHOR = os.getenv("AUTHOR")
 
     if not AUTHOR:
         return {'Error': "Error: AUTHOR environment variable is not set."}
     
-    current_citations = await get_author_citations(AUTHOR, include_all_papers=True)
+    authors_list = [a.strip() for a in AUTHOR.split(",") if a.strip()]
+    all_results = []
+    for author in authors_list:
+        single_tracking = await _track_single_author(author=author)
+        all_results.append({"Author": author, "Result": single_tracking})
+
+    return {"Authors": all_results}
+
+async def _track_single_author(author: str) -> dict:
+    current_citations = await get_author_citations(author, include_all_papers=True)
     if not current_citations or 'Error' in current_citations:
-        return {'Error': f"Could not find any papers or citations for author: {AUTHOR}"}
+        return {'Error': f"Could not find any papers or citations for author: {author}"}
     
     papers = current_citations.get('All Papers', current_citations['Papers'])
     current_map = {p['Inspire ID']: p['Citations'] for p in papers}
+
+    AUTHOR_PATH.mkdir(parents=True, exist_ok=True)
+    RECORD_FILE = AUTHOR_PATH / _author_record_filename(author)
 
     if not os.path.exists(RECORD_FILE):
         with open(RECORD_FILE, 'w') as f:
             json.dump(current_map, f)
 
-        return {'Result': f"First run: Successfully recorded citations for author {AUTHOR}"}
+        return {'Result': f"First run: Successfully recorded citations for author {author}"}
     
     with open(RECORD_FILE, 'r') as f:
         previous_map = json.load(f)
@@ -265,4 +288,4 @@ async def track_citations_updates() -> dict:
     if result_output:
         return {'Result': result_output}
     else:
-        return {'Result': f"No new publications or citations found for author '{AUTHOR}' since the last check."}
+        return {'Result': f"No new publications or citations found for author '{author}' since the last check."}
