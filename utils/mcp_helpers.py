@@ -87,24 +87,21 @@ def validate_mcp_server(name: str, server: Any) -> bool:
 
     return True
 
-def print_mcp_servers():
+def print_mcp_servers() -> str:
     mcp_path = get_mcp_path()
     servers = read_mcp_servers(mcp_path)
     valid_server = []
 
     if not servers:
-        print("No available MCP servers.")
-        return
+        return "No available MCP servers."
     else:
         for name, server in servers.items():
             if validate_mcp_server(name, server):
                 valid_server.append(name)
 
     if not valid_server:
-        print("No available MCP servers.")
+        return "No available MCP servers."
     else:
-        print("Available MCP servers: ")
-        print("\n".join(valid_server))
-
-if __name__ == "__main__":
-    print_mcp_servers()
+        results = "Available MCP servers:\n"
+        results += "\n".join(valid_server)
+        return results

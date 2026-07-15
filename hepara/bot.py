@@ -5,6 +5,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from google.genai.types import Content, Part 
 from .agent import hep_coordinator
+from .bot_commands import HeparaCommands
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SESSION_DB_DIR = PROJECT_ROOT / ".adk"
@@ -16,7 +17,8 @@ class HeparaDiscordBot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(
-            command_prefix="/",
+            command_prefix="!",
+            help_command=None,
             description="A Discord Bot for HEPARA.",
             intents=intents
         )
@@ -24,6 +26,9 @@ class HeparaDiscordBot(commands.Bot):
         SESSION_DB_DIR.mkdir(parents=True, exist_ok=True)
         session_service = DatabaseSessionService(db_url=SESSION_DB_URL)
         self.runner = Runner(app_name="HEPARA", agent=hep_coordinator, session_service=session_service)
+
+    async def setup_hook(self):
+        await self.add_cog(HeparaCommands())
     
     async def on_ready(self):
         print(f"Logged in as {self.user}")

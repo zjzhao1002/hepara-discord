@@ -171,15 +171,17 @@ def create_new_markdown(pdf: str | Path) -> Path:
     md_path = extract_markdown(pdf_path)
     return md_path
 
-def update_database():
+def update_database() -> str:
     pdf_path = get_pdf_path()
     if not pdf_path.exists():
-        print("No valid PDF path.")
-        return
+        return "No valid PDF path."
+    
     pdf_files = _get_pdf_files()
     for pdf_file in pdf_files:
         if not pdf_file.with_suffix(".md").exists():
             create_new_markdown(pdf_file)
+
+    message = ""
 
     indexed_document_ids = _get_indexed_document_ids(str(pdf_path))
     for pdf_file in pdf_files:
@@ -194,15 +196,16 @@ def update_database():
 
         add_to_chromadb(content, metadata, str(pdf_path))
         indexed_document_ids.add(metadata["Document ID"])
-        print(f"Paper {metadata['Document ID']} is added to database.")
-    print("No more papers to be added.")
+        message += f"Paper {metadata['Document ID']} is added to database."
+    message += "No more papers to be added."
+    return message
     
-def print_papers():
+def print_papers() -> str:
     pdf_path = get_pdf_path()
     pdfs = _get_pdf_names()
     if not pdfs:
-        print(f"No available papers in this directory: {str(pdf_path)}")
-        return
+        return f"No available papers in this directory: {str(pdf_path)}"
     
-    print("Available papers: ")
-    print("\n".join(pdfs))
+    papers = "Available papers:\n"
+    papers += "\n".join(pdfs)
+    return papers

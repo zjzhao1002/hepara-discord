@@ -9,6 +9,7 @@ HEPARA Discord is a Discord bot for HEPARA, a High Energy Physics research assis
 - Local PDF ingestion and ChromaDB-backed paper question answering.
 - PDG particle mass, width, lifetime, decay, and branching-fraction lookup.
 - Optional MCP server and ADK skill integrations.
+- Prefix commands for listing local resources and refreshing the paper database.
 - Long Discord responses are split automatically to fit Discord message limits.
 
 ## Requirements
@@ -66,13 +67,35 @@ Mention the bot in a channel:
 
 Session history is stored in `.adk/adk_sessions.db` and is scoped by Discord channel and user.
 
+### Commands
+
+HEPARA uses `!` prefix commands, not Discord-native slash commands:
+
+```text
+!help
+!mcp
+!skill
+!paper
+!update_db
+```
+
+- `!help` shows the command list.
+- `!mcp` lists available MCP servers.
+- `!skill` lists available skills.
+- `!paper` lists local papers available for analysis.
+- `!update_db` refreshes the local paper database.
+
 ## Local Papers
 
-Set `PDF_PATH` to the directory containing local PDFs. The bot can convert PDFs to Markdown, index them in ChromaDB, and answer questions against the local paper collection. If `PDF_PATH` is not set, the default local directory is `pdf/`.
+Set `PDF_PATH` to the directory containing local PDFs. The bot can convert PDFs to Markdown, index them in ChromaDB, and answer questions against the local paper collection. If `PDF_PATH` is not set, the default local directory is `pdf/`. Use `!paper` to list indexed papers and `!update_db` to refresh the local paper database.
 
 ## Optional Integrations
 
-MCP servers can be configured with `MCP_PATH`, which should point to a JSON file containing an `mcpServers` object. Custom ADK skills can be loaded from `SKILL_PATH`.
+MCP servers can be configured with `MCP_PATH`, which should point to a JSON file containing an `mcpServers` object. Custom ADK skills can be loaded from `SKILL_PATH`. Use `!mcp` and `!skill` in Discord to list what is available.
+
+## Adding Commands
+
+Discord commands live in `hepara/bot_commands.py` as a `commands.Cog`. Add new `@commands.command(...)` methods there so `hepara/bot.py` can keep `setup_hook()` focused on registering the command group.
 
 ## Development
 

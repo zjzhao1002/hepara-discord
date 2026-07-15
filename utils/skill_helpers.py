@@ -26,14 +26,11 @@ def get_all_skill_names() -> List[str]:
 
     return sorted(x.name for x in path.iterdir() if x.is_dir())
 
-def print_skills():
+def print_skills() -> str:
     skill_names = get_all_skill_names()
     if not skill_names:
-        print("No available skills.")
-        return
+        return "No available skills."
 
-    print("Available external skills:")
-    print("\n".join(skill_names))
-
-if __name__ == "__main__":
-    print_skills()
+    results = "Available external skills:\n"
+    results += "\n".join(skill_names)
+    return results
