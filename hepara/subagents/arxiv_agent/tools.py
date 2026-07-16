@@ -9,7 +9,6 @@ from collections import Counter
 from pathlib import Path
 from utils.paper_helpers import add_to_chromadb, extract_markdown, get_md_raw_text, get_pdf_path
 
-CATEGORIES = os.getenv("CATEGORIES")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
 GOOGLE_MODEL = os.getenv("GOOGLE_MODEL")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -250,6 +249,7 @@ async def recommend_by_trends(max_results: int=100) -> dict:
     Recommends latest papers based on trending topics in the last week.
     It finds the most frequent keywords in the latest papers and recommends papers matching those keywords.
     """
+    CATEGORIES = os.getenv("CATEGORIES")
     if not CATEGORIES:
         return {"error": "Error: Required environment variable CATEGORIES is not set."}
 
