@@ -77,6 +77,7 @@ HEPARA uses `!` prefix commands, not Discord-native slash commands:
 !skill
 !paper
 !update_db
+!arxiv_update
 ```
 
 - `!help` shows the command list.
@@ -84,6 +85,7 @@ HEPARA uses `!` prefix commands, not Discord-native slash commands:
 - `!skill` lists available skills.
 - `!paper` lists local papers available for analysis.
 - `!update_db` refreshes the local paper database.
+- `!arxiv_update` fetches the latest tracked arXiv category updates.
 
 ## Local Papers
 
@@ -95,7 +97,7 @@ MCP servers can be configured with `MCP_PATH`, which should point to a JSON file
 
 ## Adding Commands
 
-Discord commands live in `hepara/bot_commands.py` as a `commands.Cog`. Add new `@commands.command(...)` methods there so `hepara/bot.py` can keep `setup_hook()` focused on registering the command group.
+General Discord commands live in `hepara/bot_commands.py` as a `commands.Cog`; scheduled arXiv update commands live with their task Cog in `hepara/bot_tasks.py`. Add new `@commands.command(...)` methods to the relevant Cog so `hepara/bot.py` can keep `setup_hook()` focused on registering command groups.
 
 ## Development
 

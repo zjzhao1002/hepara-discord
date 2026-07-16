@@ -6,6 +6,7 @@ from google.adk.sessions import DatabaseSessionService
 from google.genai.types import Content, Part 
 from .agent import hep_coordinator
 from .bot_commands import HeparaCommands
+from .bot_tasks import HeparaTasks
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SESSION_DB_DIR = PROJECT_ROOT / ".adk"
@@ -29,6 +30,7 @@ class HeparaDiscordBot(commands.Bot):
 
     async def setup_hook(self):
         await self.add_cog(HeparaCommands())
+        await self.add_cog(HeparaTasks(self))
     
     async def on_ready(self):
         print(f"Logged in as {self.user}")

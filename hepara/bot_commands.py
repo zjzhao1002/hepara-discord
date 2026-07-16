@@ -90,6 +90,7 @@ class HeparaCommands(commands.Cog):
             `!author`: List all authors.
             `!add_author`: Add an author for citation tracking.
             `!rm_author`: Remove an author for citation tracking.
+            `!category`: List all categories.
             `!add_category`: Add an arXiv category for tracking or recommendation.
             `!rm_category`: Remove an arXiv category for tracking or recommendation.
             `!citation`: Check citation updates for tracked authors.
@@ -97,6 +98,7 @@ class HeparaCommands(commands.Cog):
             `!skill`: List the available Skills.
             `!paper`: List the available papers for analysis.
             `!update_db`: Update the local papers database.
+            `!arxiv_update`: Get the arXiv daily updates.
 
             **Chat**
             Mention me with a question to ask HEPARA:
