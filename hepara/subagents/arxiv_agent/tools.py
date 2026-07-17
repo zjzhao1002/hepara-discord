@@ -326,10 +326,12 @@ async def recommend_by_trends(max_results: int=100) -> dict:
 
     for _, row in top_papers.iterrows():
         title = row.get('Title', row.get('title', 'No Title'))
+        authors = row.get('Authors', row.get('authors', 'No Author'))
         arxiv_id = row.get('arXiv ID', row.get('arxiv_id', row.get('id', 'N/A')))
         
         report['papers'].append({
             "title": title,
+            "authors": authors,
             "arxiv_id": arxiv_id,
         })
     return report

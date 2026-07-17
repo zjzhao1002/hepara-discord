@@ -98,7 +98,8 @@ class HeparaCommands(commands.Cog):
             `!skill`: List the available Skills.
             `!paper`: List the available papers for analysis.
             `!update_db`: Update the local papers database.
-            `!arxiv_update`: Get the arXiv daily updates.
+            `!arxiv_daily`: Get the arXiv daily updates.
+            `!arxiv_weekly`: Get the arXiv weekly recommendations.
 
             **Chat**
             Mention me with a question to ask HEPARA:
