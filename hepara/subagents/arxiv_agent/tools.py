@@ -226,21 +226,35 @@ async def download_pdf(
 
     return str(path)
 
+def _normalize_keyword(keyword: Any) -> str:
+    return str(keyword).strip().casefold()
+
+
+def _normalize_keywords(raw_keywords: Any) -> list[str]:
+    if isinstance(raw_keywords, str):
+        candidates = raw_keywords.split(',')
+    elif isinstance(raw_keywords, list):
+        candidates = raw_keywords
+    else:
+        return []
+
+    return [
+        keyword
+        for keyword in (_normalize_keyword(candidate) for candidate in candidates)
+        if keyword
+    ]
+
+
 def _calculate_relevance(row_keywords: str | list[str], search_keywords: list[str]) -> int:
     """
     Calculates the relevance score for a paper based on its keywords and the search keywords.
     Match papers (up to 5) based on keywords.
     """
-    if not row_keywords:
-        return 0
-    if isinstance(row_keywords, str):
-        row_k_list = [k.strip().lower() for k in row_keywords.split(',') if k.strip()]
-    elif isinstance(row_keywords, list):
-        row_k_list = [str(k).strip().lower() for k in row_keywords if str(k).strip()]
-    else:
+    row_k_list = _normalize_keywords(row_keywords)
+    if not row_k_list:
         return 0
         
-    search_k_lower = [k.lower() for k in search_keywords]
+    search_k_lower = _normalize_keywords(search_keywords)
     matches = set(search_k_lower) & set(row_k_list)
     return len(matches)
 
@@ -299,10 +313,7 @@ async def recommend_by_trends(max_results: int=100) -> dict:
     
     all_keywords = []
     for k_val in df['Keywords'].dropna():
-        if isinstance(k_val, str):
-            all_keywords.extend([k.strip() for k in k_val.split(',') if k.strip()])
-        elif isinstance(k_val, list):
-            all_keywords.extend([str(k).strip() for k in k_val if str(k).strip()])  
+        all_keywords.extend(_normalize_keywords(k_val))
 
     if all_keywords:
         counts = Counter(all_keywords)

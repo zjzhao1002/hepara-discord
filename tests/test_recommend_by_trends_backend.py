@@ -20,12 +20,12 @@ class FakeArxivFlow:
                 {
                     "arXiv ID": "2605.00001",
                     "Title": "Paper A",
-                    "Keywords": "dark matter, higgs, collider",
+                    "Keywords": "Dark Matter, Higgs, QCD",
                 },
                 {
                     "arXiv ID": "2605.00002",
                     "Title": "Paper B",
-                    "Keywords": "dark matter, neutrino",
+                    "Keywords": "dark matter, qcd",
                 },
             ]
         )
@@ -57,6 +57,7 @@ class RecommendByTrendsBackendTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertNotIn("error", result)
+        self.assertEqual(result["keywords"], {"dark matter": 2, "qcd": 2, "higgs": 1})
         self.assertEqual(
             FakeArxivFlow.calls[0],
             {
