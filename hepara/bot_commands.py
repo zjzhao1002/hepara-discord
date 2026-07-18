@@ -217,3 +217,36 @@ class HeparaCommands(commands.Cog):
                 await ctx.send(chunk)
         except Exception as e:
             await ctx.send(f"Citation update check failed: {e}")
+
+    @commands.command(name="keyword", description="List all keywords for daily tracking")
+    async def keyword(self, ctx: commands.Context):
+        keywords = os.getenv('KEYWORDS')
+        if not keywords:
+            await ctx.send("No keyword can be tracked.")
+        else:
+            await ctx.send(f"These keywords can be tracked:\n{keywords}")
+
+    @commands.command(name="add_keyword", description="Add a keyword for daily tracking")
+    async def add_keyword(self, ctx: commands.Context, *, keyword: str):
+        keywords = os.getenv('KEYWORDS')
+        if keywords:
+            keywords += f",{keyword.strip()}"
+        else:
+            keywords = keyword.strip()
+
+        os.environ['KEYWORDS'] = keywords
+        await ctx.send(f"Keyword {keyword} has been added. All keywords:\n {os.environ['KEYWORDS']}")
+
+    @commands.command(name="rm_keyword", description="Remove a keyword for daily tracking")
+    async def rm_keyword(self, ctx: commands.Context, *, keyword: str):
+        keywords = os.getenv('KEYWORDS')
+        if not keywords:
+            await ctx.send("No keyword can be removed.")
+        else:
+            keywords_list = keywords.split(sep=",")
+            if keyword.strip() in keywords_list:
+                keywords_list.remove(keyword.strip())
+                os.environ['KEYWORDS'] = ",".join(keywords_list)
+                await ctx.send(f"Keyword {keyword} has been removed. All keywords:\n {os.environ['KEYWORDS']}")
+            else:
+                await ctx.send(f"{keyword} is not in the keywords list.")

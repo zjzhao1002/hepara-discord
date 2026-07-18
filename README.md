@@ -40,6 +40,9 @@ AUTHOR="Your InspireHEP Author Name"
 GOOGLE_MODEL=gemini-2.5-flash
 PDF_PATH=pdf
 CATEGORIES=hep-ph,hep-ex
+KEYWORDS="dark matter,vector-like lepton,smeft"
+DAILY_SEMANTIC_THRESHOLD=0.35
+DAILY_SEMANTIC_MAX_RESULTS=10
 ARXIVFLOW_KEYWORD_BACKEND=ollama
 OLLAMA_MODEL=llama3.1
 MCP_PATH=mcp_config.json
@@ -77,7 +80,11 @@ HEPARA uses `!` prefix commands, not Discord-native slash commands:
 !skill
 !paper
 !update_db
-!arxiv_update
+!arxiv_daily
+!arxiv_weekly
+!keyword
+!add_keyword dark matter
+!rm_keyword dark matter
 ```
 
 - `!help` shows the command list.
@@ -85,7 +92,11 @@ HEPARA uses `!` prefix commands, not Discord-native slash commands:
 - `!skill` lists available skills.
 - `!paper` lists local papers available for analysis.
 - `!update_db` refreshes the local paper database.
-- `!arxiv_update` fetches the latest tracked arXiv category updates.
+- `!arxiv_daily` fetches tracked arXiv category updates and ranks papers by keyword and semantic relevance.
+- `!arxiv_weekly` fetches weekly arXiv trend recommendations.
+- `!keyword`, `!add_keyword`, and `!rm_keyword` manage the daily arXiv keyword filter.
+
+Daily arXiv filtering uses comma-separated `KEYWORDS` against RSS titles and abstracts. If `GOOGLE_API_KEY` is set, the daily update also adds high-similarity semantic matches from ChromaDB/Gemini embeddings. Tune semantic inclusion with `DAILY_SEMANTIC_THRESHOLD`; higher values are stricter.
 
 ## Local Papers
 
