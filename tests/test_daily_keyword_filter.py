@@ -8,6 +8,7 @@ from hepara.bot_tasks import (
     _get_categories,
     _merge_relevant_articles,
     _semantic_matches_from_query_results,
+    _vector_search,
 )
 
 
@@ -144,6 +145,43 @@ class DailyKeywordFilterTest(unittest.TestCase):
         result = _deduplicate_articles_by_arxiv_id(articles)
 
         self.assertEqual(len(result), 2)
+
+    def test_vector_search_deletes_daily_chroma_collection_after_query(self):
+        class FakeClient:
+            deleted_collection = None
+
+            def delete_collection(self, name):
+                FakeClient.deleted_collection = name
+
+        class FakeCollection:
+            def upsert(self, **kwargs):
+                self.upsert_kwargs = kwargs
+
+            def query(self, **kwargs):
+                return {"ids": [["2607.00001"]], "distances": [[0.2]]}
+
+        def fake_embedding(task_type):
+            return lambda texts: [[0.1, 0.2] for _ in texts]
+
+        articles = [
+            {
+                "arxiv_id": "2607.00001",
+                "category": "hep-ph",
+                "title": "Dark matter at colliders",
+                "abstract": "A collider search.",
+                "authors": "A. Author",
+            }
+        ]
+
+        with (
+            patch.dict(os.environ, {"KEYWORDS": "dark matter", "GOOGLE_API_KEY": "test-key"}, clear=True),
+            patch("hepara.bot_tasks._get_embedding_function", side_effect=fake_embedding),
+            patch("hepara.bot_tasks._get_chroma_collection", return_value=(FakeClient(), FakeCollection())),
+        ):
+            result = _vector_search(articles)
+
+        self.assertEqual(result, {"ids": [["2607.00001"]], "distances": [[0.2]]})
+        self.assertEqual(FakeClient.deleted_collection, "arxiv_daily")
 
 
 if __name__ == "__main__":

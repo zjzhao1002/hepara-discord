@@ -30,6 +30,7 @@ WEEKLY_UPDATE_WEEKDAY = int(os.getenv("WEEKLY_UPDATE_WEEKDAY", "0"))
 ARXIV_MAX_RESULTS = 10
 DAILY_SEMANTIC_MAX_RESULTS = int(os.getenv("DAILY_SEMANTIC_MAX_RESULTS", str(ARXIV_MAX_RESULTS)))
 DAILY_SEMANTIC_THRESHOLD = float(os.getenv("DAILY_SEMANTIC_THRESHOLD", "0.35"))
+DAILY_CHROMA_COLLECTION = "arxiv_daily"
 
 def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.casefold()).strip()
@@ -101,11 +102,18 @@ def _filter_articles_by_keywords(articles: List[Dict]) -> List[Dict]:
 
 def _get_chroma_collection(document_embedding):
     client = chromadb.Client()
-    return client.get_or_create_collection(
-        name = "arxiv_daily",
+    collection = client.get_or_create_collection(
+        name=DAILY_CHROMA_COLLECTION,
         metadata={"hnsw:space": "cosine"},
         embedding_function=document_embedding # type: ignore
     )
+    return client, collection
+
+def _delete_daily_chroma_collection(client) -> None:
+    try:
+        client.delete_collection(DAILY_CHROMA_COLLECTION)
+    except ValueError:
+        pass
 
 def _get_embedding_function(task_type: str):
     return embedding_functions.GoogleGeminiEmbeddingFunction(
@@ -124,46 +132,48 @@ def _vector_search(articles: List[Dict]) -> Dict[str, Any]:
 
     document_embedding = _get_embedding_function("RETRIEVAL_DOCUMENT")
     query_embedding = _get_embedding_function("RETRIEVAL_QUERY")
-    collection = _get_chroma_collection(document_embedding)
+    client, collection = _get_chroma_collection(document_embedding)
+    try:
+        documents = []
+        metadatas = []
+        ids = []
 
-    documents = []
-    metadatas = []
-    ids = []
+        for idx, article in enumerate(articles):
+            document = _normalize_text(
+                f"{article.get('title', '')} {article.get('abstract', '')}"
+            )
+            if not document:
+                continue
 
-    for idx, article in enumerate(articles):
-        document = _normalize_text(
-            f"{article.get('title', '')} {article.get('abstract', '')}"
+            documents.append(document)
+
+            article_id = _article_id(article, f"{article.get('category', 'daily')}-{idx}")
+            ids.append(article_id)
+
+            metadata = {
+                "arxiv_id": article.get("arxiv_id", "Unknown ID"),
+                "authors": article.get("authors", "Unknown author"),
+                "title": article.get("title", "Untitled"),
+            }
+            metadatas.append(metadata)
+
+        if not documents:
+            return {}
+
+        collection.upsert(
+            documents=documents,
+            ids=ids,
+            metadatas=metadatas
         )
-        if not document:
-            continue
 
-        documents.append(document)
-
-        article_id = _article_id(article, f"{article.get('category', 'daily')}-{idx}")
-        ids.append(article_id)
-
-        metadata = {
-            "arxiv_id": article.get("arxiv_id", "Unknown ID"),
-            "authors": article.get("authors", "Unknown author"),
-            "title": article.get("title", "Untitled"),
-        }
-        metadatas.append(metadata)
-
-    if not documents:
-        return {}
-
-    collection.upsert(
-        documents=documents,
-        ids=ids,
-        metadatas=metadatas
-    )
-
-    query_embeddings = query_embedding(keywords)
-    return collection.query(
-        query_embeddings=query_embeddings,
-        n_results=min(DAILY_SEMANTIC_MAX_RESULTS, len(documents)),
-        include=["metadatas", "distances"],
-    ) # type: ignore
+        query_embeddings = query_embedding(keywords)
+        return collection.query(
+            query_embeddings=query_embeddings,
+            n_results=min(DAILY_SEMANTIC_MAX_RESULTS, len(documents)),
+            include=["metadatas", "distances"],
+        ) # type: ignore
+    finally:
+        _delete_daily_chroma_collection(client)
 
 def _semantic_matches_from_query_results(
     articles: List[Dict],
