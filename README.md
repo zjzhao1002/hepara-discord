@@ -29,22 +29,35 @@ uv sync
 
 ## Configuration
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root. Start from the example file:
+
+```bash
+cp .env.example .env
+```
+
+Then fill in your real tokens, channel ID, author name, and tracking preferences:
 
 ```bash
 DISCORD_TOKEN=your_discord_bot_token
 GOOGLE_API_KEY=your_google_api_key
 AUTHOR="Your InspireHEP Author Name"
+MAIN_CHANNEL_ID=your_discord_channel_id
 
 # Optional
 GOOGLE_MODEL=gemini-2.5-flash
-PDF_PATH=pdf
-CATEGORIES=hep-ph,hep-ex
-KEYWORDS="dark matter,vector-like lepton,smeft"
-DAILY_SEMANTIC_THRESHOLD=0.35
+TIMEZONE=Asia/Shanghai
+DAILY_UPDATE_HOUR=9
+DAILY_UPDATE_MINUTE=0
+WEEKLY_UPDATE_HOUR=10
+WEEKLY_UPDATE_MINUTE=0
+WEEKLY_UPDATE_WEEKDAY=0
+CATEGORIES=hep-ph,hep-th,hep-ex
+KEYWORDS="higgs phenomenology,dark matter,vector-like lepton,smeft"
+DAILY_SEMANTIC_THRESHOLD=0.7
 DAILY_SEMANTIC_MAX_RESULTS=10
 ARXIVFLOW_KEYWORD_BACKEND=ollama
 OLLAMA_MODEL=llama3.1
+PDF_PATH=pdf
 MCP_PATH=mcp_config.json
 SKILL_PATH=skill
 ```
@@ -96,7 +109,7 @@ HEPARA uses `!` prefix commands, not Discord-native slash commands:
 - `!arxiv_weekly` fetches weekly arXiv trend recommendations.
 - `!keyword`, `!add_keyword`, and `!rm_keyword` manage the daily arXiv keyword filter.
 
-Daily arXiv filtering uses comma-separated `KEYWORDS` against RSS titles and abstracts. If `GOOGLE_API_KEY` is set, the daily update also adds high-similarity semantic matches from ChromaDB/Gemini embeddings. Tune semantic inclusion with `DAILY_SEMANTIC_THRESHOLD`; higher values are stricter.
+Daily arXiv filtering deduplicates papers across tracked `CATEGORIES`, matches comma-separated `KEYWORDS` against RSS titles and abstracts, and ranks exact title/abstract matches above semantic-only matches. If `GOOGLE_API_KEY` is set, the daily update also adds high-similarity semantic matches from ChromaDB/Gemini embeddings. Tune semantic inclusion with `DAILY_SEMANTIC_THRESHOLD`; higher values are stricter.
 
 ## Local Papers
 
