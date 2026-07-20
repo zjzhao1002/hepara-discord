@@ -29,8 +29,10 @@ WEEKLY_UPDATE_TIME = dt.time(
 WEEKLY_UPDATE_WEEKDAY = int(os.getenv("WEEKLY_UPDATE_WEEKDAY", "0"))
 ARXIV_MAX_RESULTS = 10
 DAILY_SEMANTIC_MAX_RESULTS = int(os.getenv("DAILY_SEMANTIC_MAX_RESULTS", str(ARXIV_MAX_RESULTS)))
-DAILY_SEMANTIC_THRESHOLD = float(os.getenv("DAILY_SEMANTIC_THRESHOLD", "0.35"))
+DAILY_SEMANTIC_THRESHOLD = float(os.getenv("DAILY_SEMANTIC_THRESHOLD", "0.7"))
 DAILY_CHROMA_COLLECTION = "arxiv_daily"
+TITLE_KEYWORD_MATCH_SCORE = 1.20
+ABSTRACT_KEYWORD_MATCH_SCORE = 1.10
 
 def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.casefold()).strip()
@@ -63,14 +65,18 @@ def _get_categories() -> List[str]:
 
     return deduped_categories
 
-def _matches_keywords(article: Dict, keywords: List[str]) -> bool:
+def _find_keyword_match(article: Dict, keywords: List[str]) -> tuple[str, float] | None:
     if not keywords:
-        return True
+        return None
 
-    searchable_text = _normalize_text(
-        f"{article.get('title', '')} {article.get('abstract', '')}"
-    )
-    return any(keyword in searchable_text for keyword in keywords)
+    title = _normalize_text(str(article.get("title", "")))
+    abstract = _normalize_text(str(article.get("abstract", "")))
+    for keyword in keywords:
+        if keyword in title:
+            return keyword, TITLE_KEYWORD_MATCH_SCORE
+        if keyword in abstract:
+            return keyword, ABSTRACT_KEYWORD_MATCH_SCORE
+    return None
 
 def _article_id(article: Dict, fallback: str) -> str:
     arxiv_id = str(article.get("arxiv_id") or "").strip()
@@ -80,13 +86,25 @@ def _article_id(article: Dict, fallback: str) -> str:
     link = str(article.get("link") or "").strip()
     return link or fallback
 
-def _annotate_article(article: Dict, score: float, reason: str) -> Dict:
+def _annotate_keyword_match(article: Dict, keyword: str, score: float) -> Dict:
     annotated = dict(article)
     annotated["relevance_score"] = max(float(annotated.get("relevance_score", 0.0)), score)
-    reasons = list(annotated.get("relevance_reasons", []))
-    if reason not in reasons:
-        reasons.append(reason)
-    annotated["relevance_reasons"] = reasons
+    current_score = float(annotated.get("keyword_match_score", 0.0))
+    if score > current_score:
+        annotated["keyword_match"] = keyword
+        annotated["keyword_match_score"] = score
+    return annotated
+
+def _annotate_semantic_match(article: Dict, keyword: str, similarity: float) -> Dict:
+    annotated = dict(article)
+    annotated["relevance_score"] = max(float(annotated.get("relevance_score", 0.0)), similarity)
+    current_match = annotated.get("semantic_match")
+    current_similarity = current_match.get("similarity", 0.0) if current_match else 0.0
+    if similarity > current_similarity:
+        annotated["semantic_match"] = {
+            "keyword": keyword,
+            "similarity": similarity,
+        }
     return annotated
 
 def _filter_articles_by_keywords(articles: List[Dict]) -> List[Dict]:
@@ -94,11 +112,13 @@ def _filter_articles_by_keywords(articles: List[Dict]) -> List[Dict]:
     if not keywords:
         return articles
 
-    return [
-        _annotate_article(article, 1.0, "keyword match")
-        for article in articles
-        if _matches_keywords(article, keywords)
-    ]
+    matches = []
+    for article in articles:
+        keyword_match = _find_keyword_match(article, keywords)
+        if keyword_match:
+            keyword, score = keyword_match
+            matches.append(_annotate_keyword_match(article, keyword, score))
+    return matches
 
 def _get_chroma_collection(document_embedding):
     client = chromadb.Client()
@@ -188,7 +208,9 @@ def _semantic_matches_from_query_results(
 
     result_ids = query_results.get("ids") or []
     result_distances = query_results.get("distances") or []
-    for ids_for_query, distances_for_query in zip(result_ids, result_distances):
+    keywords = _get_keywords()
+    for query_idx, (ids_for_query, distances_for_query) in enumerate(zip(result_ids, result_distances)):
+        query_keyword = keywords[query_idx] if query_idx < len(keywords) else "unknown keyword"
         for article_id, distance in zip(ids_for_query, distances_for_query):
             article = articles_by_id.get(article_id)
             if not article:
@@ -199,11 +221,7 @@ def _semantic_matches_from_query_results(
                 continue
 
             current = matches.get(article_id, article)
-            matches[article_id] = _annotate_article(
-                current,
-                similarity,
-                f"semantic match {similarity:.2f}",
-            )
+            matches[article_id] = _annotate_semantic_match(current, query_keyword, similarity)
 
     return sorted(
         matches.values(),
@@ -211,17 +229,37 @@ def _semantic_matches_from_query_results(
         reverse=True,
     )
 
+def _merge_article_relevance(existing_article: Dict, new_article: Dict) -> Dict:
+    merged_article = dict(existing_article)
+    merged_article["relevance_score"] = max(
+        float(merged_article.get("relevance_score", 0.0)),
+        float(new_article.get("relevance_score", 0.0)),
+    )
+
+    keyword_match = new_article.get("keyword_match")
+    if keyword_match:
+        merged_article = _annotate_keyword_match(
+            merged_article,
+            keyword_match,
+            float(new_article.get("keyword_match_score", 0.0)),
+        )
+
+    semantic_match = new_article.get("semantic_match")
+    if semantic_match:
+        merged_article = _annotate_semantic_match(
+            merged_article,
+            semantic_match["keyword"],
+            float(semantic_match["similarity"]),
+        )
+
+    return merged_article
+
 def _merge_relevant_articles(keyword_matches: List[Dict], semantic_matches: List[Dict]) -> List[Dict]:
     merged: Dict[str, Dict] = {}
     for idx, article in enumerate(keyword_matches + semantic_matches):
         article_id = _article_id(article, f"{article.get('category', 'daily')}-{idx}")
         if article_id in merged:
-            existing = merged[article_id]
-            merged[article_id] = _annotate_article(
-                existing,
-                article.get("relevance_score", 0.0),
-                ", ".join(article.get("relevance_reasons", [])),
-            )
+            merged[article_id] = _merge_article_relevance(merged[article_id], article)
         else:
             merged[article_id] = article
 
@@ -272,6 +310,27 @@ def _deduplicate_articles_by_arxiv_id(articles: List[Dict]) -> List[Dict]:
             deduped_articles[article_id] = normalized_article
 
     return list(deduped_articles.values())
+
+def _format_relevance(article: Dict) -> str:
+    if "relevance_score" not in article:
+        return ""
+
+    reasons = []
+    keyword_match = article.get("keyword_match")
+    if keyword_match:
+        reasons.append(f"matched keyword: `{keyword_match}`")
+
+    semantic_match = article.get("semantic_match")
+    if semantic_match:
+        reasons.append(
+            "best semantic match to "
+            f"`{semantic_match['keyword']}`, similarity {semantic_match['similarity']:.2f}"
+        )
+
+    relevance = f"  Relevance: {article['relevance_score']:.2f}"
+    if reasons:
+        relevance += f" ({', '.join(reasons)})"
+    return relevance
 
 def _get_abstract(description: str) -> str:
     return '\n'.join(description.splitlines()[1:])
@@ -345,12 +404,7 @@ def _format_category_update(articles: List[Dict], category: str, max_results: in
             authors += " et al., "
         else:
             authors = article["authors"] + ", "
-        relevance = ""
-        if "relevance_score" in article:
-            reasons = ", ".join(article.get("relevance_reasons", []))
-            relevance = f"  Relevance: {article['relevance_score']:.2f}"
-            if reasons:
-                relevance += f" ({reasons})"
+        relevance = _format_relevance(article)
 
         article_lines = [
             f"- {article['title']}",
@@ -360,7 +414,7 @@ def _format_category_update(articles: List[Dict], category: str, max_results: in
             article_lines.append(relevance)
         if article.get("categories"):
             article_lines.append(f"  Categories: {', '.join(article['categories'])}")
-        article_lines.append(f"  {article['link']}")
+        article_lines.append(f" {article['link']}")
         lines.append(
             "\n".join(article_lines)
         )

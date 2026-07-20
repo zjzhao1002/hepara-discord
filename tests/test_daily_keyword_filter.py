@@ -5,6 +5,7 @@ from unittest.mock import patch
 from hepara.bot_tasks import (
     _deduplicate_articles_by_arxiv_id,
     _filter_articles_by_keywords,
+    _format_relevance,
     _get_categories,
     _merge_relevant_articles,
     _semantic_matches_from_query_results,
@@ -38,12 +39,16 @@ class DailyKeywordFilterTest(unittest.TestCase):
             result = _filter_articles_by_keywords(self.articles)
 
         self.assertEqual([article["title"] for article in result], ["Vector-like leptons at the LHC"])
+        self.assertEqual(result[0]["keyword_match"], "vector-like lepton")
+        self.assertAlmostEqual(result[0]["relevance_score"], 1.2)
 
     def test_matches_keyword_phrase_in_abstract(self):
         with patch.dict(os.environ, {"KEYWORDS": "dark matter"}, clear=True):
             result = _filter_articles_by_keywords(self.articles)
 
         self.assertEqual([article["title"] for article in result], ["A precision QCD calculation"])
+        self.assertEqual(result[0]["keyword_match"], "dark matter")
+        self.assertAlmostEqual(result[0]["relevance_score"], 1.1)
 
     def test_drops_articles_without_keyword_matches(self):
         with patch.dict(os.environ, {"KEYWORDS": "neutrino"}, clear=True):
@@ -69,30 +74,69 @@ class DailyKeywordFilterTest(unittest.TestCase):
             "distances": [[0.2, 0.8]],
         }
 
-        result = _semantic_matches_from_query_results(articles, query_results, threshold=0.5)
+        with patch.dict(os.environ, {"KEYWORDS": "heavy lepton"}, clear=True):
+            result = _semantic_matches_from_query_results(articles, query_results, threshold=0.5)
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["arxiv_id"], "2607.00001")
         self.assertAlmostEqual(result[0]["relevance_score"], 0.8)
-        self.assertEqual(result[0]["relevance_reasons"], ["semantic match 0.80"])
+        self.assertEqual(result[0]["semantic_match"], {"keyword": "heavy lepton", "similarity": 0.8})
+
+    def test_semantic_matches_keep_only_best_keyword_match(self):
+        articles = [
+            {
+                "arxiv_id": "2607.00001",
+                "category": "hep-ph",
+                "title": "Heavy lepton partners",
+                "abstract": "A collider study.",
+            },
+        ]
+        query_results = {
+            "ids": [["2607.00001"], ["2607.00001"]],
+            "distances": [[0.33], [0.28]],
+        }
+
+        with patch.dict(os.environ, {"KEYWORDS": "dark matter,vector-like lepton"}, clear=True):
+            result = _semantic_matches_from_query_results(articles, query_results, threshold=0.5)
+
+        self.assertEqual(len(result), 1)
+        self.assertAlmostEqual(result[0]["relevance_score"], 0.72)
+        self.assertEqual(
+            result[0]["semantic_match"],
+            {"keyword": "vector-like lepton", "similarity": 0.72},
+        )
 
     def test_merge_relevant_articles_keeps_keyword_and_semantic_matches(self):
         keyword_match = {
             "arxiv_id": "2607.00001",
             "title": "Exact keyword match",
-            "relevance_score": 1.0,
-            "relevance_reasons": ["keyword match"],
+            "relevance_score": 1.2,
+            "keyword_match": "dark matter",
+            "keyword_match_score": 1.2,
         }
         semantic_match = {
             "arxiv_id": "2607.00002",
             "title": "Semantic match",
             "relevance_score": 0.72,
-            "relevance_reasons": ["semantic match 0.72"],
+            "semantic_match": {"keyword": "vector-like lepton", "similarity": 0.72},
         }
 
         result = _merge_relevant_articles([keyword_match], [semantic_match])
 
         self.assertEqual([article["arxiv_id"] for article in result], ["2607.00001", "2607.00002"])
+
+    def test_format_relevance_names_keyword_and_best_semantic_match(self):
+        article = {
+            "relevance_score": 1.2,
+            "keyword_match": "dark matter",
+            "semantic_match": {"keyword": "vector-like lepton", "similarity": 0.72},
+        }
+
+        self.assertEqual(
+            _format_relevance(article),
+            "  Relevance: 1.20 (matched keyword: `dark matter`, "
+            "best semantic match to `vector-like lepton`, similarity 0.72)",
+        )
 
     def test_get_categories_deduplicates_configured_categories(self):
         with patch.dict(os.environ, {"CATEGORIES": "hep-ph, hep-th, hep-ph, ,hep-ex"}, clear=True):
