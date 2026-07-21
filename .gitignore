@@ -68,6 +68,7 @@ hepara/subagents/**/*_record.json
 pdf/
 chroma_db/
 .authors/
+docker.env
 
 # Flask stuff:
 instance/

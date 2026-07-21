@@ -1,0 +1,47 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+docker.env
+*.pem
+*.key
+*.crt
+
+# Runtime state
+.adk/
+.authors/
+discord.log
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Persistent data mounted at /app/data in Docker
+data/
+pdf/
+skill/
+mcp_config.json
+chroma_db/
+**/chroma_db/
+
+# Python and test caches
+.venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Build and package artifacts
+build/
+dist/
+*.egg-info/
+
+# Git and editor metadata
+.git/
+.gitignore
+.DS_Store
+.vscode/
+.idea/

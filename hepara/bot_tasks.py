@@ -382,7 +382,7 @@ def _get_category_update(category: str) -> List[Dict]:
 
 def format_daily_update(all_updates: List[Dict]) -> str:
     if not all_updates:
-        return "No arXiv updates found."
+        return "No daily arXiv updates found."
     
     formatted_results = ""
     for update in all_updates:
