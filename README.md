@@ -76,10 +76,11 @@ Pull the image:
 docker pull zjzhao1002/hepara-discord:latest
 ```
 
-Create the persistent app-data volume. You can reuse an existing `hepara-ollama` volume if you already run HEPARA locally:
+Create the persistent app-data volume and a `hepara-ollama` volume for ollama models (You can reuse an existing `hepara-ollama` volume if you already run HEPARA locally):
 
 ```bash
 docker volume create hepara-data
+docker volume create hepara-ollama
 ```
 
 Create a Docker env file with your Discord and Gemini credentials, then run:
@@ -248,7 +249,7 @@ Each bot mention starts or resumes a conversation scoped by channel and root mes
 
 HEPARA Discord uses `!` prefix commands, not Discord-native slash commands:
 
-```text
+<!-- ```text
 !help
 !mcp
 !skill
@@ -266,7 +267,7 @@ HEPARA Discord uses `!` prefix commands, not Discord-native slash commands:
 !keyword
 !add_keyword dark matter
 !rm_keyword dark matter
-```
+``` -->
 
 -   `!help` shows the command list.
 -   `!mcp` lists available MCP servers.
